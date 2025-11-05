@@ -1,23 +1,25 @@
 import streamlit as st
 import speech_recognition as sr
-import pyttsx3
-
-# Настройка синтезатора речи
-engine = pyttsx3.init()
-engine.setProperty('rate', 150)
-engine.setProperty('voice', 'ru')
+from gtts import gTTS
+import tempfile
+import os
 
 st.set_page_config(page_title="Voice Access System", page_icon="🎙", layout="centered")
 st.title("🎙 Система голосового доступа")
-st.write("Скажите команду: **Открыть дверь**")
+st.write("🎧 Загрузите голосовую команду (например, 'Открыть дверь')")
 
-# Кнопка для активации микрофона
-if st.button("🎧 Говорить"):
+audio_file = st.file_uploader("Загрузите аудиофайл (.wav или .mp3)", type=["wav", "mp3"])
+
+if audio_file is not None:
+    st.audio(audio_file)
     recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("Говорите...")
-        audio = recognizer.listen(source, phrase_time_limit=5)
-        st.success("Обработка...")
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp.write(audio_file.read())
+        tmp_path = tmp.name
+
+    with sr.AudioFile(tmp_path) as source:
+        audio = recognizer.record(source)
 
     try:
         text = recognizer.recognize_google(audio, language="ru-RU")
@@ -26,18 +28,18 @@ if st.button("🎧 Говорить"):
         if "открыть дверь" in text.lower():
             st.success("✅ Доступ разрешён")
             st.markdown("<div style='background-color:green;color:white;padding:10px;border-radius:10px;text-align:center;'>Дверь открыта</div>", unsafe_allow_html=True)
-            engine.say("Доступ разрешён")
-            engine.runAndWait()
+            tts = gTTS("Доступ разрешён", lang="ru")
         else:
             st.error("⛔ Доступ запрещён")
             st.markdown("<div style='background-color:red;color:white;padding:10px;border-radius:10px;text-align:center;'>Дверь закрыта</div>", unsafe_allow_html=True)
-            engine.say("Доступ запрещён")
-            engine.runAndWait()
+            tts = gTTS("Доступ запрещён", lang="ru")
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as audio_out:
+            tts.save(audio_out.name)
+            st.audio(audio_out.name, format="audio/mp3")
+
     except sr.UnknownValueError:
-        st.warning("Не удалось распознать речь, повторите попытку.")
+        st.warning("Не удалось распознать речь.")
     except Exception as e:
         st.error(f"Ошибка: {e}")
-
-st.caption("💡 Скажите «Открыть дверь» для разрешения доступа")
-
 
